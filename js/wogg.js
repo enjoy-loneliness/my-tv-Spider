@@ -6,107 +6,112 @@
  * @FilePath: js/wogg.js
  * @Description: 玩偶哥哥爬虫类
  */
-import {_, load} from '../lib/cat.js';
-import {VodDetail, VodShort} from "../lib/vod.js"
-import {initCloud, detailContent,playContent,getHeaders} from '../lib/cloud.js';
-import * as Utils from "../lib/utils.js";
-import {Spider} from "./spider.js";
-
+import { _, load } from '../lib/cat.js';
+import { VodDetail, VodShort } from '../lib/vod.js';
+import { initCloud, detailContent, playContent, getHeaders } from '../lib/cloud.js';
+import * as Utils from '../lib/utils.js';
+import { Spider } from './spider.js';
+import { utilsClassFun } from './utilsClass.js';
 
 class WoggSpider extends Spider {
-    constructor() {
-        super();
-        this.siteUrl = 'https://www.wogg.net';
-        this.woggTypeObj = {"玩偶电影":"电影","玩偶剧集":"电视剧"}
-    }
+  constructor() {
+    super();
+    this.siteUrl = 'https://www.wogg.net';
+    this.woggTypeObj = { '玩偶电影': '电影', '玩偶剧集': '电视剧' };
+  }
 
-    async init(cfg) {
-        await super.init(cfg);
-        await initCloud(this.cfgObj)
-        this.danmuStaus = true
-    }
+  async init(cfg) {
+    await super.init(cfg);
+    await initCloud(this.cfgObj);
+    this.danmuStaus = true;
+  }
 
+  getName() {
+    return '💂‍┃阿里玩偶┃💂';
+  }
 
-    getName() {
-        return "💂‍┃阿里玩偶┃💂"
-    }
+  getAppName() {
+    return '阿里玩偶';
+  }
+  getJSName() {
+    return 'wogg';
+  }
 
-    getAppName() {
-        return "阿里玩偶"
+  getType() {
+    return 3;
+  }
+  async parseVodShortListFromDoc($) {
+    let items = $('.module-item');
+    let vod_list = [];
+    for (const item of items) {
+      let vodShort = new VodShort();
+      let oneA = $(item).find('.module-item-cover .module-item-pic a').first();
+      vodShort.vod_id = oneA.attr('href');
+      vodShort.vod_name = oneA.attr('title');
+      vodShort.vod_pic = $(item)
+        .find('.module-item-cover .module-item-pic img')
+        .first()
+        .attr('data-src');
+      if (vodShort.vod_pic.indexOf('img.php?url=') > 0) {
+        vodShort.vod_pic = vodShort.vod_pic.split('img.php?url=')[1];
+      }
+      vodShort.vod_remarks = $(item).find('.module-item-text').first().text();
+      vod_list.push(vodShort);
     }
-    getJSName() {
-        return "wogg"
-    }
+    return vod_list;
+  }
 
-    getType() {
-        return 3
+  async parseVodDetailFromDoc($) {
+    let vodDetail = new VodDetail();
+    vodDetail.vod_name = $('.page-title')[0].children[0].data;
+    vodDetail.vod_pic = $($('.mobile-play')).find('.lazyload')[0].attribs['data-src'];
+    vodDetail.type_name =
+      this.woggTypeObj[$('[class="video-info-aux"]').find('a')[0].attribs.title];
+    let video_items = $('.video-info-items');
+    vodDetail.vod_director = $(video_items[0]).find('a')[0].children[0].data;
+    let vidoe_info_actor_list = $(video_items[1]).find('a');
+    let actor_list = [];
+    for (const video_info_actor of vidoe_info_actor_list) {
+      if (video_info_actor.children.length > 0) {
+        actor_list.push(video_info_actor.children[0].data);
+      }
     }
-    async parseVodShortListFromDoc($) {
-        let items = $('.module-item');
-        let vod_list = [];
-        for (const item of items) {
-            let vodShort = new VodShort()
-            let oneA = $(item).find('.module-item-cover .module-item-pic a').first();
-            vodShort.vod_id = oneA.attr('href');
-            vodShort.vod_name = oneA.attr('title');
-            vodShort.vod_pic = $(item).find('.module-item-cover .module-item-pic img').first().attr('data-src');
-            if (vodShort.vod_pic.indexOf("img.php?url=") > 0) {
-                vodShort.vod_pic = vodShort.vod_pic.split("img.php?url=")[1]
-            }
-            vodShort.vod_remarks = $(item).find('.module-item-text').first().text();
-            vod_list.push(vodShort)
-        }
-        return vod_list
+    vodDetail.vod_actor = actor_list.join(' * ');
+    vodDetail.vod_year = $(video_items[2]).find('a')[0].children[0].data;
+    vodDetail.vod_remarks = `${$(video_items[3]).find('div')[0].children[0].data}, 制作人:Jade`;
+    vodDetail.vod_content = $(video_items[4]).find('p')[0].children[0].data;
+
+    vodDetail.vod_content = vodDetail.vod_content
+      .replace('[收起部分]', '')
+      .replace('[展开全部]', '');
+    const share_url_list = [];
+    let items = $('.module-row-info');
+    for (const item of items) {
+      let shareUrl = $(item).find('p')[0].children[0].data;
+      share_url_list.push(shareUrl);
     }
+    let playVod = await detailContent(share_url_list, vodDetail.type_name);
+    vodDetail.vod_play_from = _.keys(playVod).join('$$$');
+    vodDetail.vod_play_url = _.values(playVod).join('$$$');
+    return vodDetail;
+  }
 
-    async parseVodDetailFromDoc($) {
-        let vodDetail = new VodDetail()
-        vodDetail.vod_name = $('.page-title')[0].children[0].data
-        vodDetail.vod_pic = $($(".mobile-play")).find(".lazyload")[0].attribs["data-src"]
-        vodDetail.type_name = this.woggTypeObj[$("[class=\"video-info-aux\"]").find("a")[0].attribs.title]
-        let video_items = $('.video-info-items')
-        vodDetail.vod_director = $(video_items[0]).find("a")[0].children[0].data
-        let vidoe_info_actor_list = $(video_items[1]).find("a")
-        let actor_list = []
-        for (const video_info_actor of vidoe_info_actor_list) {
-            if (video_info_actor.children.length > 0){
-                 actor_list.push(video_info_actor.children[0].data)
-            }
-        }
-        vodDetail.vod_actor = actor_list.join(" * ")
-        vodDetail.vod_year = $(video_items[2]).find("a")[0].children[0].data
-        vodDetail.vod_remarks = `${$(video_items[3]).find("div")[0].children[0].data}, 制作人:Jade`
-        vodDetail.vod_content = $(video_items[4]).find("p")[0].children[0].data
-
-        vodDetail.vod_content = vodDetail.vod_content.replace("[收起部分]", "").replace("[展开全部]", "")
-        const share_url_list = []
-        let items = $('.module-row-info')
-        for (const item of items) {
-            let shareUrl = $(item).find("p")[0].children[0].data
-            share_url_list.push(shareUrl)
-        }
-        let playVod = await detailContent(share_url_list,vodDetail.type_name)
-        vodDetail.vod_play_from = _.keys(playVod).join('$$$');
-        vodDetail.vod_play_url = _.values(playVod).join('$$$');
-        return vodDetail
+  async parseVodShortListFromDocBySearch($) {
+    let items = $('.module-search-item');
+    let vod_list = [];
+    for (const item of items) {
+      let vodShort = new VodShort();
+      vodShort.vod_id = $(item).find('.video-serial')[0].attribs.href;
+      vodShort.vod_name = $(item).find('.video-serial')[0].attribs.title;
+      vodShort.vod_pic = $(item).find('.module-item-pic > img')[0].attribs['data-src'];
+      vodShort.vod_remarks = $($(item).find('.video-serial')[0]).text();
+      vod_list.push(vodShort);
     }
+    return vod_list;
+  }
 
-    async parseVodShortListFromDocBySearch($) {
-        let items = $('.module-search-item');
-        let vod_list = [];
-        for (const item of items) {
-            let vodShort = new VodShort()
-            vodShort.vod_id = $(item).find(".video-serial")[0].attribs.href;
-            vodShort.vod_name = $(item).find(".video-serial")[0].attribs.title;
-            vodShort.vod_pic = $(item).find(".module-item-pic > img")[0].attribs['data-src'];
-            vodShort.vod_remarks = $($(item).find(".video-serial")[0]).text();
-            vod_list.push(vodShort);
-        }
-        return vod_list
-    }
-
-    get_extend_sort_dic(tid) {
-        /***
+  get_extend_sort_dic(tid) {
+    /***
          tid为1,2,3的时候,电影,剧情,动漫
          urlParams#0表示类别,1表示全部地区,2表示人气评分,3表示全部剧情,4表示全部语言,5表示字母查找,6表示页数,11表示时间
          #key为1,代表全部剧情
@@ -137,178 +142,161 @@ class WoggSpider extends Spider {
          #key为5,时间排序
          https://tvfan.xxooo.cf/index.php/vodshow/6-全部地区-时间排序-全部剧情--字母查找------全部时间.html
          */
-        let extend_dic = {}
-        if (tid < 4) {
-            extend_dic = {
-                "1": 3, "2": 1, "3": 4, "4": 11, "5": 5, "6": 2
-            }
-        } else if (tid === 4) {
-            extend_dic = {
-                "1": 1, "2": 11, "3": 5, "4": 2,
-            }
-        } else if (tid === 6) {
-            extend_dic = {
-                "1": 3, "2": 1, "3": 11, "4": 5, "5": 2,
-            }
-        } else if (tid === 5) {
-            extend_dic = {
-                "1": 5, "2": 2,
-            }
-        }
-
-        return extend_dic
+    let extend_dic = {};
+    if (tid < 4) {
+      extend_dic = {
+        '1': 3,
+        '2': 1,
+        '3': 4,
+        '4': 11,
+        '5': 5,
+        '6': 2,
+      };
+    } else if (tid === 4) {
+      extend_dic = {
+        '1': 1,
+        '2': 11,
+        '3': 5,
+        '4': 2,
+      };
+    } else if (tid === 6) {
+      extend_dic = {
+        '1': 3,
+        '2': 1,
+        '3': 11,
+        '4': 5,
+        '5': 2,
+      };
+    } else if (tid === 5) {
+      extend_dic = {
+        '1': 5,
+        '2': 2,
+      };
     }
 
-    async setClasses() {
-        let con = await this.fetch(this.siteUrl, null, this.getHeader());
-        if (!_.isEmpty(con)) {
-            const $ = load(con);
-            let elements = $('.nav-link')
-            for (const element of elements) {
-                let type_id = parseInt(element.attribs.href.split("/").slice(-1)[0].split(".html")[0])
-                let type_name = element.children.slice(-1)[0].data.replace("\n", "").replace(" ", "").replace("玩偶", "")
-                let type_dic = {"type_id": type_id, "type_name": type_name}
-                this.classes.push(type_dic)
-            }
-        }
+    return extend_dic;
+  }
+
+  async setClasses() {
+    let con = await this.fetch(this.siteUrl, null, this.getHeader());
+    if (!_.isEmpty(con)) {
+      const $ = load(con);
+      let elements = $('.nav-link');
+      for (const element of elements) {
+        let type_id = parseInt(element.attribs.href.split('/').slice(-1)[0].split('.html')[0]);
+        let type_name = element.children
+          .slice(-1)[0]
+          .data.replace('\n', '')
+          .replace(' ', '')
+          .replace('玩偶', '');
+        let type_dic = { 'type_id': type_id, 'type_name': type_name };
+        this.classes.push(type_dic);
+      }
     }
+  }
 
-    async getFilter($) {
-        let elements = $("[class='scroll-content']").slice(1)
-        let extend_list = []
-        for (let i = 0; i < elements.length; i++) {
-            let extend_dic = {"key": (i + 1).toString(), "name": "", "value": []}
-            if (i < elements.length - 1) {
-                extend_dic["name"] = $($(elements[i]).find("a")[0]).text()
-                extend_dic["value"].push({"n": "全部", "v": "0"})
-                for (const ele of $(elements[i]).find("a").slice(1)) {
-                    extend_dic["value"].push({"n": $(ele).text(), "v": $(ele).text()})
-                }
-                extend_list.push(extend_dic)
-            } else {
-                extend_dic["name"] = $($(elements[i]).find("a")[0]).text()
-                extend_dic["value"] = [{"n": "全部", "v": "0"}, {
-                    "n": $($(elements[i]).find("a")[1]).text(),
-                    "v": "hits"
-                }, {"n": $($(elements[i]).find("a")[2]).text(), "v": "score"}]
-
-                extend_list.push(extend_dic)
-            }
-
+  async getFilter($) {
+    let elements = $("[class='scroll-content']").slice(1);
+    let extend_list = [];
+    for (let i = 0; i < elements.length; i++) {
+      let extend_dic = { 'key': (i + 1).toString(), 'name': '', 'value': [] };
+      if (i < elements.length - 1) {
+        extend_dic['name'] = $($(elements[i]).find('a')[0]).text();
+        extend_dic['value'].push({ 'n': '全部', 'v': '0' });
+        for (const ele of $(elements[i]).find('a').slice(1)) {
+          extend_dic['value'].push({ 'n': $(ele).text(), 'v': $(ele).text() });
         }
-        return extend_list
-    }
+        extend_list.push(extend_dic);
+      } else {
+        extend_dic['name'] = $($(elements[i]).find('a')[0]).text();
+        extend_dic['value'] = [
+          { 'n': '全部', 'v': '0' },
+          {
+            'n': $($(elements[i]).find('a')[1]).text(),
+            'v': 'hits',
+          },
+          { 'n': $($(elements[i]).find('a')[2]).text(), 'v': 'score' },
+        ];
 
-    async setFilterObj() {
-        for (const type_dic of this.classes) {
-            let type_id = type_dic["type_id"]
-            if (type_id !== "/" && type_id !== "最近更新") {
-                let url = this.siteUrl + `/index.php/vodshow/${type_id}--------1---.html`
-                let html = await this.fetch(url, null, this.getHeader())
-                if (html != null) {
-                    let $ = load(html)
-                    this.filterObj[type_id] = await this.getFilter($)
-                }
-            }
+        extend_list.push(extend_dic);
+      }
+    }
+    return extend_list;
+  }
+
+  async setFilterObj() {
+    for (const type_dic of this.classes) {
+      let type_id = type_dic['type_id'];
+      if (type_id !== '/' && type_id !== '最近更新') {
+        let url = this.siteUrl + `/index.php/vodshow/${type_id}--------1---.html`;
+        let html = await this.fetch(url, null, this.getHeader());
+        if (html != null) {
+          let $ = load(html);
+          this.filterObj[type_id] = await this.getFilter($);
         }
+      }
     }
-    async setHomeVod() {
-        let con = await this.fetch(this.siteUrl, null, this.getHeader());
-        if (!_.isEmpty(con)) {
-            const $ = load(con);
-            this.homeVodList = await this.parseVodShortListFromDoc($)
-        }
+  }
+  async setHomeVod() {
+    let con = await this.fetch(this.siteUrl, null, this.getHeader());
+    if (!_.isEmpty(con)) {
+      const $ = load(con);
+      this.homeVodList = await this.parseVodShortListFromDoc($);
     }
+  }
 
-    async setCategory(tid, pg, filter, extend) {
-        let urlParams = [tid.toString(), "", "", "", "", "", "", "", pg.toString(), "", "", ""]
-        let extend_dic = this.get_extend_sort_dic(parseInt(tid))
-        for (const key of Object.keys(extend_dic)) {
-            if (extend[key] === "0") {
-                urlParams[extend_dic[key]] = ""
-            } else {
-                urlParams[extend_dic[key]] = extend[key]
-            }
-        }
-        let reqUrl = this.siteUrl + '/index.php/vodshow/' + urlParams.join("-") + '.html';
-        let html = await this.fetch(reqUrl, null, this.getHeader())
-        if (!_.isEmpty(html)) {
-            let $ = load(html)
-            this.vodList = await this.parseVodShortListFromDoc($)
-            let total = Utils.getStrByRegex(/\$\("\.mac_total"\)\.text\('(\d+)'\)/, html)
-            this.limit = 72;
-            if (total.length > 0) {
-                this.total = parseInt(total)
-            }
-            if (this.total <= this.limit) {
-                this.count = 1
-            } else {
-                this.count = Math.ceil(this.total / this.limit)
-            }
-        }
+  async setCategory(tid, pg, filter, extend) {
+    let urlParams = [tid.toString(), '', '', '', '', '', '', '', pg.toString(), '', '', ''];
+    let extend_dic = this.get_extend_sort_dic(parseInt(tid));
+    for (const key of Object.keys(extend_dic)) {
+      if (extend[key] === '0') {
+        urlParams[extend_dic[key]] = '';
+      } else {
+        urlParams[extend_dic[key]] = extend[key];
+      }
     }
-
-    async setDetail(id) {
-        let detailUrl = this.siteUrl + id;
-        let html = await this.fetch(detailUrl, null, this.getHeader());
-        if (!_.isEmpty(html)) {
-            let $ = load(html)
-            this.vodDetail = await this.parseVodDetailFromDoc($)
-        }
+    let reqUrl = this.siteUrl + '/index.php/vodshow/' + urlParams.join('-') + '.html';
+    let html = await this.fetch(reqUrl, null, this.getHeader());
+    if (!_.isEmpty(html)) {
+      let $ = load(html);
+      this.vodList = await this.parseVodShortListFromDoc($);
+      let total = Utils.getStrByRegex(/\$\("\.mac_total"\)\.text\('(\d+)'\)/, html);
+      this.limit = 72;
+      if (total.length > 0) {
+        this.total = parseInt(total);
+      }
+      if (this.total <= this.limit) {
+        this.count = 1;
+      } else {
+        this.count = Math.ceil(this.total / this.limit);
+      }
     }
+  }
 
-    async setPlay(flag, id, flags) {
-        this.playUrl = await playContent(flag, id, flags);
-        this.result.setHeader(getHeaders(flag))
+  async setDetail(id) {
+    let detailUrl = this.siteUrl + id;
+    let html = await this.fetch(detailUrl, null, this.getHeader());
+    if (!_.isEmpty(html)) {
+      let $ = load(html);
+      this.vodDetail = await this.parseVodDetailFromDoc($);
     }
+  }
 
+  async setPlay(flag, id, flags) {
+    this.playUrl = await playContent(flag, id, flags);
+    this.result.setHeader(getHeaders(flag));
+  }
 
-
-    async setSearch(wd, quick) {
-        let searchUrl = this.siteUrl + '/index.php/vodsearch/-------------.html?wd=' + wd;
-        let html = await this.fetch(searchUrl, null, this.getHeader())
-        if (!_.isEmpty(html)) {
-            let $ = load(html)
-            this.vodList = await this.parseVodShortListFromDocBySearch($)
-        }
+  async setSearch(wd, quick) {
+    let searchUrl = this.siteUrl + '/index.php/vodsearch/-------------.html?wd=' + wd;
+    let html = await this.fetch(searchUrl, null, this.getHeader());
+    if (!_.isEmpty(html)) {
+      let $ = load(html);
+      this.vodList = await this.parseVodShortListFromDocBySearch($);
     }
-
+  }
 }
 
-let spider = new WoggSpider()
+const { spider, __jsEvalReturn } = utilsClassFun(WoggSpider);
 
-async function init(cfg) {
-    await spider.init(cfg)
-}
-
-async function home(filter) {
-    return await spider.home(filter)
-}
-
-async function homeVod() {
-    return await spider.homeVod()
-}
-
-async function category(tid, pg, filter, extend) {
-    return await spider.category(tid, pg, filter, extend)
-}
-
-async function detail(id) {
-    return await spider.detail(id)
-}
-
-async function play(flag, id, flags) {
-    return await spider.play(flag, id, flags)
-}
-
-async function search(wd, quick) {
-    return await spider.search(wd, quick)
-}
-
-export function __jsEvalReturn() {
-    return {
-        init: init, home: home, homeVod: homeVod, category: category, detail: detail, play: play, search: search,
-    };
-}
-
-export {spider}
+export { spider, __jsEvalReturn };
