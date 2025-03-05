@@ -13,5 +13,4 @@ import { test } from './js/testSpider.js';
 (async function () {
   let x = 'a'.toString();
   await test();
-  debugger;
 })();

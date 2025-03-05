@@ -1,4 +1,4 @@
-import { __jsEvalReturn } from '../js/dubo.js';
+import { __jsEvalReturn } from '../js/tiantian.js';
 
 let spider = __jsEvalReturn();
 
@@ -66,12 +66,13 @@ async function test() {
     },
   });
 
+  // 首页分类
   let classes = JSON.parse(await spider.home(true));
-  console.debug(JSON.stringify(classes));
+  // console.debug(JSON.stringify(classes));
 
-  //测试首页列表
+  // 首页内容列表
   let homeVod = JSON.parse(await spider.homeVod());
-  console.debug(JSON.stringify(homeVod));
+  // console.debug(JSON.stringify(homeVod));
 
   // // 测试详情
   // let detail1 = JSON.parse(await spider.detail("562381"))

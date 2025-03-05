@@ -15,7 +15,7 @@ import { utilsClassFun } from './utilsClass.js';
 class TianTianSpider extends Spider {
   constructor() {
     super();
-    this.siteUrl = 'http://op.ysdqjs.cn';
+    this.siteUrl = 'http://v.rbotv.cn';
     this.cookie = '';
     this.extendObj = { 'extend': '类型', 'area': '地区', 'year': '年代' };
     this.parseMap = {};
@@ -64,15 +64,15 @@ class TianTianSpider extends Spider {
   }
 
   getName() {
-    return '⛄┃天天影视┃⛄';
+    return '⛄┃四方影视┃⛄';
   }
 
   getAppName() {
-    return '天天影视';
+    return '四方影视';
   }
 
   getJSName() {
-    return 'tiantian';
+    return 'sifang';
   }
 
   getType() {
